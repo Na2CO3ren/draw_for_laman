@@ -7,7 +7,7 @@ def GetFileName(path):
     return file_name
 
 def GenCfgId(substance, pointId):
-    return "{}_{}".format(substance, pointId)
+    return "{}_{}".format(substance.name, pointId)
 
 
 def GenSubstanceConfigPath(substance):

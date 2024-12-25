@@ -8,8 +8,11 @@ import util.util as util
 import const.const as const
 import data_import as data
 import point_size as point_size
+import const.color as color
 
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,QFormLayout,QComboBox
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPalette, QColor
 import sys
 
 current_curve_fig = None
@@ -61,19 +64,45 @@ def ShowThresholdInput(x, y):
     window = QWidget()
     window.setWindowTitle("阈值输入")
 
-    layout = QVBoxLayout()
+    layout = QFormLayout()
+    layout.setLabelAlignment(Qt.AlignLeft)
 
-    # 第一行展示包含变量x的文本
-    wave_number_label = QLabel(f"xMin: {x}")
-    layout.addWidget(wave_number_label)
-
-    # 第二行展示包含变量y的文本
-    intensity_label = QLabel(f"xMax: {y}")
-    layout.addWidget(intensity_label)
+    # 前两行展示包含变量x的文本
+    layout.addRow("xMin:", QLabel(f'{x}'))
+    layout.addRow("xMax:", QLabel(f'{y}'))
 
     # 第三行创建可输入的文本框
     threshold_edit = QLineEdit()
-    layout.addWidget(threshold_edit)
+    layout.addRow("threshold input:", threshold_edit)
+
+    # 第四行和第五行创建颜色下拉列表
+    comboBox1 = QComboBox()
+    comboBox1.addItems(color.MainPointColor)
+    layout.addRow("color type:", comboBox1)
+    comboBox2 = QComboBox()
+    comboBox2.addItems(color.SubColorMap[color.MainPointColor[0]])
+    layout.addRow("sub color type:", comboBox2)
+    displayLabel = QLabel('         ')
+    layout.addRow("display color:", displayLabel)
+
+
+    def comboBox1ChangeEvent():
+        selectedOption = comboBox1.currentText()
+        comboBox2.clear()
+        comboBox2.addItems(color.SubColorMap[selectedOption])
+    # 动态关联
+    comboBox1.currentIndexChanged.connect(comboBox1ChangeEvent)
+
+    def comboBox2ChangeEvent():
+        selectedOption = comboBox2.currentText()
+        color = QColor(selectedOption)
+        palette = displayLabel.palette()
+        palette.setColor(QPalette.Background, color)
+        displayLabel.setPalette(palette)
+        displayLabel.setAutoFillBackground(True)
+    comboBox2ChangeEvent() #先调用一次
+    comboBox2.currentIndexChanged.connect(comboBox2ChangeEvent)
+
 
     def get_result():
         result = threshold_edit.text()
