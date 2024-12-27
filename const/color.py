@@ -11,6 +11,8 @@ SubColorMap = {
     '#FF00FF':['#FF80FF','#FF40FF','#CC00CC','#990099'],
 }
 
+# 默认的无效颜色
+InvalidColor = '#4040FF'
 
 
 

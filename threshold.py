@@ -1,6 +1,7 @@
 import json
 import model.model as model
 import const.const as const
+import numpy as np
 import util.util as util
 import os.path
 
@@ -9,9 +10,10 @@ DefaultThreshold = 120
 ThresholdConfigMap = {}
 
 # 将config写入文件中
-def SaveThresholdConfig(config_map):
-    serializable_config_map = {cfgId: vars(config) for cfgId, config in config_map.items()}
-    with open(const.ThresholdConfigPath, 'w') as file:
+def SaveThresholdConfig(config_map, substanceName):
+    cfgPath = util.GenSubstanceConfigPath(substanceName)
+    serializable_config_map = {int(locateId): vars(config) for locateId, config in config_map.items()}
+    with open(cfgPath, 'w') as file:
         json.dump(serializable_config_map, file, cls=model.NumpyJSONEncoder)
 
 

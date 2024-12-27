@@ -8,7 +8,7 @@ import util.util as util
 import const.const as const
 import data_import as data
 import point_size as point_size
-import const.color as color
+import const.color as cl
 
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,QFormLayout,QComboBox
 from PyQt5.QtCore import Qt
@@ -25,7 +25,7 @@ def DrawScatter(substance,ScatterFig, ScatterAxs):
     locaY = np.array([point.locaY for point in substance.points])
 
     # 获取颜色数组
-    colors = [const.ShowColorMap.get(point.color) for point in substance.points]
+    colors = [point.color for point in substance.points]
     # 计算散点大小
     size = point_size.CalPointSize(substance.pointXNum)
     # 绘制散点图
@@ -59,7 +59,7 @@ def DrawScatter(substance,ScatterFig, ScatterAxs):
 
 
 # 弹出阈值输入框
-def ShowThresholdInput(x, y):
+def ShowThresholdInput(x, y, new_x, new_y, config):
     app = QApplication(sys.argv)
     window = QWidget()
     window.setWindowTitle("阈值输入")
@@ -75,24 +75,30 @@ def ShowThresholdInput(x, y):
     threshold_edit = QLineEdit()
     layout.addRow("threshold input:", threshold_edit)
 
+    mainColor = GetMainColor(config.color)
     # 第四行和第五行创建颜色下拉列表
     comboBox1 = QComboBox()
-    comboBox1.addItems(color.MainPointColor)
+    comboBox1.addItems(cl.MainPointColor)
+    comboBox1.setCurrentText(mainColor)
     layout.addRow("color type:", comboBox1)
+
     comboBox2 = QComboBox()
-    comboBox2.addItems(color.SubColorMap[color.MainPointColor[0]])
+    comboBox2.addItems(cl.SubColorMap[cl.MainPointColor[0]])
     layout.addRow("sub color type:", comboBox2)
+    comboBox2.setCurrentText(config.color)
+
+    #颜色展示框
     displayLabel = QLabel('         ')
     layout.addRow("display color:", displayLabel)
 
-
+    #主颜色和子颜色的联动
     def comboBox1ChangeEvent():
         selectedOption = comboBox1.currentText()
         comboBox2.clear()
-        comboBox2.addItems(color.SubColorMap[selectedOption])
-    # 动态关联
+        comboBox2.addItems(cl.SubColorMap[selectedOption])
     comboBox1.currentIndexChanged.connect(comboBox1ChangeEvent)
 
+    # 子颜色变化的时候 动态调整颜色展示框
     def comboBox2ChangeEvent():
         selectedOption = comboBox2.currentText()
         color = QColor(selectedOption)
@@ -103,21 +109,30 @@ def ShowThresholdInput(x, y):
     comboBox2ChangeEvent() #先调用一次
     comboBox2.currentIndexChanged.connect(comboBox2ChangeEvent)
 
-
+    # 提交按钮的触发
     def get_result():
         result = threshold_edit.text()
         window.close()
         app.quit()
         return result
-
     submit_button = QPushButton("提交")
     submit_button.clicked.connect(get_result)
     layout.addWidget(submit_button)
 
+    # 窗口等待
     window.setLayout(layout)
     window.show()
     app.exec_()
-    return threshold_edit.text()
+
+    # 窗口退出后，更新config
+    threshold = threshold_edit.text()
+    inputNum = float(threshold)
+    newLineFillList = thd.AddFillLine(model.LineFill(new_x, new_y, inputNum), config.lineFillList)
+    config.lineFillList = newLineFillList
+    inputColor = comboBox2.currentText()
+    config.color = inputColor
+
+    return config
 
 # 弹出物质输入框
 def ShowSubstanceInput():
@@ -150,6 +165,7 @@ def ShowSubstanceInput():
     window.setLayout(layout)
     window.show()
     app.exec_()
+
     # window.close()
     # app.quit()
     return substanceInput.text()
@@ -175,9 +191,7 @@ def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs):
     def onselect(xmin, xmax):
         new_x = [x_value for index, x_value in enumerate(curve.x) if xmin <= x_value <= xmax]
         new_y = [curve.y[index] for index, x_value in enumerate(curve.x) if xmin <= x_value <= xmax]
-        # 展示输入框
-        threshold, color = ShowThresholdInput(xmin, xmax)
-        inputNum = float(threshold)
+
         # 生成配置
         config = model.ThresholdConfig(
             cfgId=cfgId,
@@ -185,23 +199,24 @@ def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs):
             locaX=locatX,
             locaY=locatY,
             locaInd=locaInd,
-            lineFillList = [model.LineFill(new_x, new_y, inputNum)],
-            color=color
+            lineFillList = [],
+            color = cl.InvalidColor
         )
-         # todo:robin 看到这里了
-        if cfgId in thd.ThresholdConfigMap :
-            config = thd.ThresholdConfigMap[cfgId]
-            newLineFillList = thd.AddFillLine(model.LineFill(new_x, new_y, inputNum), config.lineFillList)
-            config.lineFillList = newLineFillList
-        else :
-            thd.ThresholdConfigMap[cfgId] = config
+        if locaInd in substance.cfgs:
+            config = substance.cfgs[locaInd]
+
+        # 展示输入框
+        config = ShowThresholdInput(xmin, xmax, new_x, new_y, config)
+        substance.cfgs[locaInd] = config
+        thd.ThresholdConfigMap[locaInd] = config
+
         # 保存配置
-        thd.SaveThresholdConfig(thd.ThresholdConfigMap)
+        thd.SaveThresholdConfig(thd.ThresholdConfigMap, substance.name)
         # 关闭之前的窗口
         plt.close(new_fig)
 
         # 重新绘制
-        drawInnerLine(substance, locatX, locatY, locaInd,curve,fig, axs)
+        # drawInnerLine(substance, locatX, locatY, locaInd,curve,fig, axs)
 
     # 创建SpanSelector用于区间选择
     span_selector = SpanSelector(new_ax, onselect, 'horizontal', useblit=True, interactive=True,
@@ -250,3 +265,9 @@ def CalScatterYRange(points):
     yMax = sortedYList[len(sortedYList) - 1] + yDistance / 2
     return yMin, yMax
 
+def GetMainColor(color):
+    for mainColor, subColors in cl.SubColorMap.items():
+        for subColor in subColors:
+            if subColor == color:
+                return mainColor
+    return cl.MainPointColor[0]

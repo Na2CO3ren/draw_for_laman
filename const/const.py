@@ -1,17 +1,8 @@
-# 散点颜色配置
-ShowColorMap = {
-    0: 'g',
-    1: 'b',
-}
 
 # 物质有效的默认颜色
 SubstanceColorMap = {
     "CX": 1
 }
-
-# 默认的无效颜色
-InvalidCollor = 0
-
 
 # 物质原始数据文件路径
 DataPath = '/Users/jinglan/Documents/AiData/'

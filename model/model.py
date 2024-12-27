@@ -1,7 +1,7 @@
 import  json
 
 import numpy as np
-import const.const as const
+import const.color as color
 
 # 物质
 class Substance:
@@ -30,7 +30,7 @@ class Substance:
 
 # 图上的数据点
 class Point:
-    def __init__(self, pointId, locaX,locaY,substanceName, color = const.InvalidCollor):
+    def __init__(self, pointId, locaX, locaY, substanceName, color = color.InvalidColor):
         self.pointId = pointId
         self.locaX = locaX
         self.locaY = locaY
@@ -42,7 +42,7 @@ class Point:
         return json_str
 
     def SetColor(self, configMap):
-        self.color = const.InvalidCollor
+        self.color = color.InvalidColor
         if self.pointId in configMap:
             self.color = configMap[self.pointId].color
 
