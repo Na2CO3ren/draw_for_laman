@@ -5,8 +5,6 @@ import numpy as np
 import util.util as util
 import os.path
 
-DefaultThreshold = 120
-
 ThresholdConfigMap = {}
 
 # 将config写入文件中

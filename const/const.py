@@ -10,10 +10,12 @@ DataPath = '/Users/jinglan/Documents/AiData/'
 # 阈值配置路径
 ThresholdConfigPath = '/Users/jinglan/Documents/AiData/'
 
+DefaultThreshold = -10
+
 # 当前展示的物质名
 # ShowSubstanceName = 'CX'
-ShowSubstanceName = '4-6D_11'
-# ShowSubstanceName = 'PX 4-7_last'
+# ShowSubstanceName = '4-6D_11'
+ShowSubstanceName = 'PX 4-7_last'
 # ShowSubstanceName = 'Test5'
 
 pointSizeMap = {

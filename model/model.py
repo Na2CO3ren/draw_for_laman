@@ -44,12 +44,14 @@ class Point:
 
     def SetColor(self, configMap, line):
         self.color = color.InvalidColor
-        if line.IsValid() and self.pointId in configMap:
-            self.color = configMap[self.pointId].color
+        if line.IsValid():
+            if self.pointId in configMap :
+                self.color = configMap[self.pointId].color
+            else :
+                self.color = color.ValidColor
 
 
-
-# 曲线填充
+            # 曲线填充
 class LineFill:
     def __init__(self, rangeX,rangeY,threshold):
         self.rangeX = rangeX
