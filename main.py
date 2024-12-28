@@ -19,6 +19,9 @@ matplotlib.rcParams['figure.dpi'] = 150
 substance = data.ImportData(const.ShowSubstanceName)
 
 # 设置图片参数
+# ScatterFig, (ScatterAxs, linAxs) = plt.subplots(1,2)
+# plt.subplots_adjust(left=0, bottom=0.2, right=0.8, top=0.8)
+# ScatterFig.set_size_inches(4.9*2 +2, 4.9)
 ScatterFig, ScatterAxs = plt.subplots()
 ScatterFig.set_size_inches(4.9, 4.9)
 ScatterFig.patch.set_visible(False)

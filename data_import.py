@@ -28,9 +28,6 @@ def ImportData(substanceName):
             # 读取点
             data = list(map(float, line.split()))
             point = model.Point(index, data[0], data[1], substanceName)
-            # 设置颜色
-            point.SetColor(substance.cfgs)
-            points.append(point)
 
             # 读取曲线
             intensity = data[2:]
@@ -42,6 +39,10 @@ def ImportData(substanceName):
                 curve = model.Line(point, wave_number, np.array(intensity),
                                    substance.cfgs[point.pointId].lineFillList)
             curves[point.pointId] = curve
+            # 设置颜色
+            point.SetColor(substance.cfgs, curve)
+            points.append(point)
+
     substance.curves = curves
     substance.points = points
     substance.CalPointsNum()

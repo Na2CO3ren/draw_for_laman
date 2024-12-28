@@ -56,9 +56,14 @@ def LoadThresholdConfig(substanceName):
 
 
 def check_overlap(new_line_fill, existing_line_fill):
+    if len(new_line_fill.rangeX) == 0 :
+        return False
     new_x = new_line_fill.rangeX
     exist_x = existing_line_fill.rangeX
-    if (new_x[0] <= exist_x[-1] and new_x[0] >= exist_x[0]) or (new_x[-1] <= exist_x[-1] and new_x[-1] >= exist_x[0]):
+    if ((new_x[0] >= exist_x[0] and new_x[-1] <= exist_x[-1]) or
+            (new_x[0] <= exist_x[0] <= new_x[-1]) or
+            (new_x[0] <= exist_x[-1] <= new_x[-1]) or
+            (new_x[0]<= exist_x[0] and new_x[-1] >= exist_x[-1])):
         return True
 
     return False

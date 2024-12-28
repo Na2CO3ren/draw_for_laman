@@ -14,12 +14,15 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdi
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette, QColor
 import sys
+import window as window
 
 current_curve_fig = None
 
+IsWindowInit = None
+FillList = None
+
 # 绘制散点图
 def DrawScatter(substance,ScatterFig, ScatterAxs):
-
     # 提取坐标点的x坐标和y坐标
     locaX = np.array([point.locaX for point in substance.points])
     locaY = np.array([point.locaY for point in substance.points])
@@ -35,7 +38,6 @@ def DrawScatter(substance,ScatterFig, ScatterAxs):
     yMin, yMax = CalScatterYRange(substance.points)
     ScatterAxs.set_ylim(yMin,yMax)
 
-
     # # 设置坐标轴标签和标题
     plt.xlabel('X')
     plt.ylabel('Y')
@@ -49,7 +51,7 @@ def DrawScatter(substance,ScatterFig, ScatterAxs):
             print(f"Clicked point coordinates: ({locaX[ind]}, {locaY[ind]})")
             # 获取曲线信息
             curve = substance.curves[ind]
-            a = drawInnerLine(substance, locaX[ind], locaY[ind], ind, curve, ScatterFig, ScatterAxs)
+            a = drawInnerLine(substance, locaX[ind], locaY[ind], ind, curve, ScatterFig, ScatterAxs, scatter_plot)
 
     # 连接点击事件和处理函数
     cid = ScatterFig.canvas.mpl_connect('pick_event', on_pick)
@@ -57,81 +59,15 @@ def DrawScatter(substance,ScatterFig, ScatterAxs):
     # 显示图形
     plt.show()
 
-
 # 弹出阈值输入框
-def ShowThresholdInput(x, y, new_x, new_y, config):
-    app = QApplication(sys.argv)
-    window = QWidget()
-    window.setWindowTitle("阈值输入")
-
-    layout = QFormLayout()
-    layout.setLabelAlignment(Qt.AlignLeft)
-
-    # 前两行展示包含变量x的文本
-    layout.addRow("xMin:", QLabel(f'{x}'))
-    layout.addRow("xMax:", QLabel(f'{y}'))
-
-    # 第三行创建可输入的文本框
-    threshold_edit = QLineEdit()
-    layout.addRow("threshold input:", threshold_edit)
-
-    mainColor = GetMainColor(config.color)
-    # 第四行和第五行创建颜色下拉列表
-    comboBox1 = QComboBox()
-    comboBox1.addItems(cl.MainPointColor)
-    comboBox1.setCurrentText(mainColor)
-    layout.addRow("color type:", comboBox1)
-
-    comboBox2 = QComboBox()
-    comboBox2.addItems(cl.SubColorMap[cl.MainPointColor[0]])
-    layout.addRow("sub color type:", comboBox2)
-    comboBox2.setCurrentText(config.color)
-
-    #颜色展示框
-    displayLabel = QLabel('         ')
-    layout.addRow("display color:", displayLabel)
-
-    #主颜色和子颜色的联动
-    def comboBox1ChangeEvent():
-        selectedOption = comboBox1.currentText()
-        comboBox2.clear()
-        comboBox2.addItems(cl.SubColorMap[selectedOption])
-    comboBox1.currentIndexChanged.connect(comboBox1ChangeEvent)
-
-    # 子颜色变化的时候 动态调整颜色展示框
-    def comboBox2ChangeEvent():
-        selectedOption = comboBox2.currentText()
-        color = QColor(selectedOption)
-        palette = displayLabel.palette()
-        palette.setColor(QPalette.Background, color)
-        displayLabel.setPalette(palette)
-        displayLabel.setAutoFillBackground(True)
-    comboBox2ChangeEvent() #先调用一次
-    comboBox2.currentIndexChanged.connect(comboBox2ChangeEvent)
-
-    # 提交按钮的触发
-    def get_result():
-        result = threshold_edit.text()
-        window.close()
-        app.quit()
-        return result
-    submit_button = QPushButton("提交")
-    submit_button.clicked.connect(get_result)
-    layout.addWidget(submit_button)
-
-    # 窗口等待
-    window.setLayout(layout)
-    window.show()
-    app.exec_()
-
-    # 窗口退出后，更新config
-    threshold = threshold_edit.text()
-    inputNum = float(threshold)
-    newLineFillList = thd.AddFillLine(model.LineFill(new_x, new_y, inputNum), config.lineFillList)
-    config.lineFillList = newLineFillList
-    inputColor = comboBox2.currentText()
-    config.color = inputColor
-
+def ShowThresholdInput(x, y, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax):
+    global IsWindowInit
+    if IsWindowInit == None:
+        win = window.MyWidget(x, y, new_x, new_y, config, substance, locaInd, scatter_plot, new_ax)
+        IsWindowInit = win
+        win.execute()
+    else:
+        IsWindowInit.showWin(x, y, new_x, new_y, config, substance, locaInd, scatter_plot, new_ax)
     return config
 
 # 弹出物质输入框
@@ -171,21 +107,15 @@ def ShowSubstanceInput():
     return substanceInput.text()
 
 # 绘制曲线图
-def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs):
-    global current_curve_fig
+def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs, scatter_plot):
+    print(f'curve:{len(curve.lineFillList)}')
+    global  FillList
     # 绘制曲线
     new_fig, new_ax = plt.subplots()
-    current_curve_fig = new_fig
     line = new_ax.plot(curve.x, curve.y,linewidth=0.5)
 
     # 填充标记区间
-    for lineFill in curve.lineFillList:
-        if np.all(np.array(lineFill.rangeY) < lineFill.threshold):
-            new_ax.fill_between(np.array(lineFill.rangeX), np.array(lineFill.rangeY), y2=lineFill.threshold,
-                                where=(np.array(lineFill.rangeY) < lineFill.threshold), color='g', alpha=1)
-        else:
-            new_ax.fill_between(np.array(lineFill.rangeX), np.array(lineFill.rangeY), y2=lineFill.threshold,
-                                where=(np.array(lineFill.rangeY) > lineFill.threshold), color='r', alpha=1)
+    FillList = FillTheLine(new_ax, curve.lineFillList)
 
     cfgId = util.GenCfgId(substance, locaInd)
     def onselect(xmin, xmax):
@@ -206,17 +136,10 @@ def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs):
             config = substance.cfgs[locaInd]
 
         # 展示输入框
-        config = ShowThresholdInput(xmin, xmax, new_x, new_y, config)
-        substance.cfgs[locaInd] = config
-        thd.ThresholdConfigMap[locaInd] = config
-
-        # 保存配置
-        thd.SaveThresholdConfig(thd.ThresholdConfigMap, substance.name)
-        # 关闭之前的窗口
-        plt.close(new_fig)
-
+        config= ShowThresholdInput(xmin, xmax, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax)
+        # RefreshAfterInput(substance, locaInd, config, scatter_plot,fillList, new_ax)
         # 重新绘制
-        # drawInnerLine(substance, locatX, locatY, locaInd,curve,fig, axs)
+        # drawInnerLine(substance, locatX, locatY, locaInd,curve,fig, axs,scatter_plot)
 
     # 创建SpanSelector用于区间选择
     span_selector = SpanSelector(new_ax, onselect, 'horizontal', useblit=True, interactive=True,
@@ -226,10 +149,50 @@ def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs):
     new_ax.set_ylabel('Intensity')
     new_ax.set_title(f'Intensity Curve for Point ({locatX}, {locatY})')
 
-    # 连接关闭事件，当曲线图关闭时执行重绘散点图的函数
-    # new_fig.canvas.mpl_connect('close_event', RedrawScatter(substance.name,fig, axs))
-
     plt.show()
+
+def RefreshAfterInput(substance, locaInd, config, scatter_plot, new_ax):
+    global FillList
+    substance.cfgs[locaInd] = config
+    substance.curves[locaInd].lineFillList = config.lineFillList
+    curve  = substance.curves[locaInd]
+    thd.ThresholdConfigMap[locaInd] = config
+    for point in substance.points:
+        point.SetColor(substance.cfgs, curve)
+
+    # 保存配置
+    thd.SaveThresholdConfig(thd.ThresholdConfigMap, substance.name)
+    # # 关闭之前的窗口
+    # plt.close(new_fig)
+
+    # 更新散点位置
+    colors = [point.color for point in substance.points]
+    scatter_plot.set_color(colors)
+    # 刷新图形
+    # fig.canvas.draw_idle()
+    # plt.show()
+    #
+    for axFill in FillList:
+        # print(f'remvoe fill: xmin={axFill.rangeX[0]},xmax={axFill.rangeX[-1]}')
+        axFill.remove()
+    FillList = FillTheLine(new_ax, config.lineFillList)
+    # new_fig.canvas.draw_idle()
+    plt.show()
+
+def FillTheLine(new_ax, lineFillList) :
+    fillList = []
+    for lineFill in lineFillList:
+        if np.all(np.array(lineFill.rangeY) < lineFill.threshold):
+            axFill = new_ax.fill_between(np.array(lineFill.rangeX), np.array(lineFill.rangeY),
+                                         y2=lineFill.threshold,
+                                         where=(np.array(lineFill.rangeY) < lineFill.threshold), color='g', alpha=1)
+            fillList.append(axFill)
+        else:
+            axFill = new_ax.fill_between(np.array(lineFill.rangeX), np.array(lineFill.rangeY),
+                                         y2=lineFill.threshold,
+                                         where=(np.array(lineFill.rangeY) > lineFill.threshold), color='r', alpha=1)
+            fillList.append(axFill)
+    return fillList
 
 # 重绘散点图
 def RedrawScatter(substanceName, fig, axs):

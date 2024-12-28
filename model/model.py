@@ -1,4 +1,5 @@
 import  json
+from math import trunc
 
 import numpy as np
 import const.color as color
@@ -41,9 +42,9 @@ class Point:
         json_str = json.dumps(self.__dict__, cls=NumpyJSONEncoder)
         return json_str
 
-    def SetColor(self, configMap):
+    def SetColor(self, configMap, line):
         self.color = color.InvalidColor
-        if self.pointId in configMap:
+        if line.IsValid() and self.pointId in configMap:
             self.color = configMap[self.pointId].color
 
 
@@ -73,19 +74,16 @@ class Line:
         self.x = x
         self.y = y
         self.lineFillList = LineFillList
-        self.valid = True
-        self.ResetValid()
 
     def __repr__(self):
         json_str = json.dumps(self.__dict__, cls=NumpyJSONEncoder)
         return json_str
 
-    def ResetValid(self):
-        self.valid = True
+    def IsValid(self):
         for lineFill in self.lineFillList:
             if not lineFill.IsValid():
-                self.valid = False
-                break
+                return False
+        return True
 #
 # # 图
 # class Image:
