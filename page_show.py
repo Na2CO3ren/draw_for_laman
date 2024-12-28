@@ -18,7 +18,7 @@ import window as window
 
 current_curve_fig = None
 
-IsWindowInit = None
+MyWindow = None
 FillList = None
 
 # 绘制散点图
@@ -61,13 +61,13 @@ def DrawScatter(substance,ScatterFig, ScatterAxs):
 
 # 弹出阈值输入框
 def ShowThresholdInput(x, y, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax):
-    global IsWindowInit
-    if IsWindowInit == None:
+    global MyWindow
+    if MyWindow == None:
         win = window.MyWidget(x, y, new_x, new_y, config, substance, locaInd, scatter_plot, new_ax)
-        IsWindowInit = win
+        MyWindow = win
         win.execute()
     else:
-        IsWindowInit.showWin(x, y, new_x, new_y, config, substance, locaInd, scatter_plot, new_ax)
+        MyWindow.showWin(x, y, new_x, new_y, config, substance, locaInd, scatter_plot, new_ax)
     return config
 
 # 弹出物质输入框
@@ -110,8 +110,10 @@ def ShowSubstanceInput():
 def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs, scatter_plot):
     print(f'curve:{len(curve.lineFillList)}')
     global  FillList
+    global MyWindow
     # 绘制曲线
     new_fig, new_ax = plt.subplots()
+    new_fig.set_size_inches(4.9, 4.9)
     line = new_ax.plot(curve.x, curve.y,linewidth=0.5)
 
     # 填充标记区间
@@ -121,7 +123,8 @@ def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs, scatter_plot)
     def onselect(xmin, xmax):
         new_x = [x_value for index, x_value in enumerate(curve.x) if xmin <= x_value <= xmax]
         new_y = [curve.y[index] for index, x_value in enumerate(curve.x) if xmin <= x_value <= xmax]
-
+        if len(new_x) <= 1 :
+            return
         # 生成配置
         config = model.ThresholdConfig(
             cfgId=cfgId,
@@ -136,11 +139,14 @@ def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs, scatter_plot)
             config = substance.cfgs[locaInd]
 
         # 展示输入框
-        config= ShowThresholdInput(xmin, xmax, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax)
+        ShowThresholdInput(xmin, xmax, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax)
         # RefreshAfterInput(substance, locaInd, config, scatter_plot,fillList, new_ax)
         # 重新绘制
         # drawInnerLine(substance, locatX, locatY, locaInd,curve,fig, axs,scatter_plot)
 
+    # if MyWindow != None :
+    #     print(f'before hide is hide:{MyWindow.isHidden()}')
+    #     MyWindow.hideMyself()
     # 创建SpanSelector用于区间选择
     span_selector = SpanSelector(new_ax, onselect, 'horizontal', useblit=True, interactive=True,
                                  drag_from_anywhere=True)
@@ -150,15 +156,18 @@ def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs, scatter_plot)
     new_ax.set_title(f'Intensity Curve for Point ({locatX}, {locatY})')
 
     plt.show()
+    # if MyWindow != None :
+    #     print(f'before hide is hide:{MyWindow.isHidden()}')
+    #     MyWindow.hideMyself()
+    print('after show')
 
 def RefreshAfterInput(substance, locaInd, config, scatter_plot, new_ax):
     global FillList
     substance.cfgs[locaInd] = config
     substance.curves[locaInd].lineFillList = config.lineFillList
-    curve  = substance.curves[locaInd]
     thd.ThresholdConfigMap[locaInd] = config
     for point in substance.points:
-        point.SetColor(substance.cfgs, curve)
+        point.SetColor(substance.cfgs, substance.curves[point.pointId])
 
     # 保存配置
     thd.SaveThresholdConfig(thd.ThresholdConfigMap, substance.name)

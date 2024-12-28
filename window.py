@@ -8,6 +8,8 @@ import threshold as thd
 import util.util as util
 import const.color as cl
 
+QtApp = None
+
 class DebugEventFilter(QObject):
     def eventFilter(self, watched, event):
         # print(f"事件过滤器正在处理事件，事件类型: {event.type()}，目标部件: {watched}")
@@ -20,11 +22,13 @@ class DebugEventFilter(QObject):
 
 class MyWidget(QWidget):
     def __init__(self, x, y, new_x, new_y,config, substance, locaInd, scatter_plot, new_ax):
+        global QtApp
         app = QApplication(sys.argv)
+        QtApp = app
         super().__init__()
 
-        self.window = QWidget()
-        self.window.setWindowTitle("阈值输入")
+        # self = QWidget()
+        self.setWindowTitle("阈值输入")
 
         layout = QFormLayout()
         layout.setLabelAlignment(Qt.AlignLeft)
@@ -76,6 +80,10 @@ class MyWidget(QWidget):
         submit_button = QPushButton("提交")
         submit_button.clicked.connect(self.refresh)
         layout.addWidget(submit_button)
+        close_button = QPushButton("关闭")
+        close_button.clicked.connect(self.close)
+        # layout.addWidget(close_button)
+        self.close_button = close_button
         self.config = config
         self.new_x = new_x
         self.new_y = new_y
@@ -83,15 +91,33 @@ class MyWidget(QWidget):
         self.locaInd = locaInd
         self.scatter_plot = scatter_plot
         self.new_ax = new_ax
-        self.window.setLayout(layout)
-        self.app = app
+        self.setLayout(layout)
+
+        # self.app = app
 
     def execute(self):
+        global QtApp
         event_filter = DebugEventFilter()
-        self.window.installEventFilter(event_filter)
-        self.window.show()
-        rt = self.app.exec_()
+        self.installEventFilter(event_filter)
+        self.show()
+        # self.
+        # rt = self.app.exec_()
+        rt = QtApp.exec_()
         print('execution end!!!')
+
+    def closeEvent(self, event):
+        # 在这里可以添加自定义的关闭逻辑
+        print("窗口正在关闭")
+        # 可以选择接受或忽略关闭事件
+        # event.accept()  # 接受关闭事件，窗口将正常关闭
+        # event.ignore()
+        # self.hide()
+    def hideEvent(self, event):
+        print("窗口正在隐藏》》")
+        # event.accept()
+    def hideMyself(self):
+        self.close_button.animateClick(1)
+        # self.mi
 
     def refresh(self):
         threshold = self.threshold_edit.text()
@@ -100,7 +126,10 @@ class MyWidget(QWidget):
         self.config.lineFillList = newLineFillList
         inputColor = self.comboBox2.currentText()
         self.config.color = inputColor
+        self.hideMyself()
         # self.close()
+        # self.hide()
+        # self.setVisible(False)
         show.RefreshAfterInput(self.substance, self.locaInd, self.config, self.scatter_plot, self.new_ax)
 
     def showWin(self, x, y, new_x, new_y,config, substance, locaInd, scatter_plot, new_ax):
@@ -113,6 +142,6 @@ class MyWidget(QWidget):
         self.locaInd = locaInd
         self.scatter_plot = scatter_plot
         self.new_ax = new_ax
-        # self.window.setVisible(True)
-        # self.window.setHidden(False)
-        self.window.show()
+        # self.setVisible(True)
+        # self.setHidden(False)
+        self.show()
