@@ -74,3 +74,12 @@ def AddFillLine(new_line_fill, line_fills):
             newFillLineList.append(existLine)
     newFillLineList.append(new_line_fill)
     return newFillLineList
+
+def MatchSubstance(line_data) :
+    matchedSubstance = []
+    for substance, featureData in const.SubstanceFeatureMap.items():
+        for data in line_data:
+            for feature in featureData:
+                if abs(feature - data) <= 2:
+                    matchedSubstance.append(substance)
+    return list(set(matchedSubstance))

@@ -55,9 +55,41 @@ def DrawScatter(substance,ScatterFig, ScatterAxs):
 
     # 连接点击事件和处理函数
     cid = ScatterFig.canvas.mpl_connect('pick_event', on_pick)
+    # 创建一个空的注释对象，用于显示鼠标悬停时的信息
+    annot = ScatterAxs.annotate("", xy=(0, 0), xytext=(20, 20), textcoords="offset points",
+                        bbox=dict(boxstyle="round", fc="w"),
+                        arrowprops=dict(arrowstyle="->"))
+    annot.set_visible(False)
+
+    # 定义鼠标移动事件的处理函数
+    def update_annot(ind):
+        pos = scatter_plot.get_offsets()[ind["ind"][0]]
+        annot.xy = pos
+        point = substance.points[ind["ind"][0]]
+        text = util.FormatComponent(point.components)
+        annot.set_text(text)
+        annot.get_bbox_patch().set_alpha(0.4)
+
+    def hover(event):
+        vis = annot.get_visible()
+        if event.inaxes == ScatterAxs:
+            cont, ind = scatter_plot.contains(event)
+            if cont:
+                update_annot(ind)
+                annot.set_visible(True)
+                ScatterFig.canvas.draw_idle()
+            else:
+                if vis:
+                    annot.set_visible(False)
+                    ScatterFig.canvas.draw_idle()
+
+    # 连接鼠标移动事件到处理函数
+    ScatterFig.canvas.mpl_connect("motion_notify_event", hover)
 
     # 显示图形
     plt.show()
+
+
 
 # 弹出阈值输入框
 def ShowThresholdInput(x, y, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax):

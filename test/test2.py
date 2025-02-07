@@ -1,18 +1,41 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel,QFormLayout
-from PyQt5.QtGui import QPalette, QColor
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
+import pandas as pd
 
+# 生成示例数据
+x = list(range(10))
+y = [i**2 for i in x]
+data = {'x': x, 'y': y}
+df = pd.DataFrame(data)
 
-app = QApplication(sys.argv)
-widget = QWidget()
+# 创建 Dash 应用
+app = dash.Dash(__name__)
 
-label = QLabel("Hello, World!")
-palette = label.palette()
-palette.setColor(QPalette.Background, QColor(255, 255, 0))  # 黄色
-label.setPalette(palette)
-label.setAutoFillBackground(True)
-layout = QFormLayout()  # 假设你已经有合适的布局设置，如QVBoxLayout等，这里省略布局细节
-layout.addWidget(label)
-widget.setLayout(layout)
-widget.show()
-sys.exit(app.exec_())
+# 定义应用布局
+app.layout = html.Div([
+    dcc.Graph(
+        id='line-plot',
+        figure=px.line(df, x='x', y='y')
+    ),
+    html.Div(id='selected-points-info')
+])
+
+# 定义回调函数，处理 plotly_selected 事件
+@app.callback(
+    Output('selected-points-info', 'children'),
+    Input('line-plot', 'selectedData')
+)
+def display_selected_points(selectedData):
+    if selectedData is not None:
+        points = selectedData['points']
+        info = []
+        for point in points:
+            info.append(f"选中点坐标: ({point['x']}, {point['y']})")
+        return html.Ul([html.Li(item) for item in info])
+    return html.P("未选中任何数据点。")
+
+if __name__ == '__main__':
+    app.run_server(debug=True)

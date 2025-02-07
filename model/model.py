@@ -31,12 +31,13 @@ class Substance:
 
 # 图上的数据点
 class Point:
-    def __init__(self, pointId, locaX, locaY, substanceName, color = color.InvalidColor):
+    def __init__(self, pointId, locaX, locaY, substanceName, color = color.InvalidColor, components = []):
         self.pointId = pointId
         self.locaX = locaX
         self.locaY = locaY
         self.color = color
         self.substanceName = substanceName
+        self.components = components
 
     def __repr__(self):
         json_str = json.dumps(self.__dict__, cls=NumpyJSONEncoder)

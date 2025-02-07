@@ -16,6 +16,7 @@ class DebugEventFilter(QObject):
         if event.type() == QEvent.Close and isinstance(watched, QWidget):
             watched.hide()  # 将窗口隐藏
             event.ignore()  # 忽略关闭事件
+            # watched.contextMenuEvent()
             print("通过事件过滤器拦截，窗口已隐藏，而不是关闭")
             return True
         return False

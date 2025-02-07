@@ -13,10 +13,13 @@ ThresholdConfigPath = '/Users/jinglan/Documents/AiData/'
 DefaultThreshold = -10
 
 # 当前展示的物质名
-# ShowSubstanceName = 'CX'
-# ShowSubstanceName = '4-6D_11'
-ShowSubstanceName = 'PX 4-7_last'
-# ShowSubstanceName = 'Test5'
+#ShowSubstanceName = 'CX'
+#ShowSubstanceName = '4-6D_11'
+#ShowSubstanceName = 'PX 4-7_last'
+#ShowSubstanceName = 'Z2R210um2zuo1'
+#ShowSubstanceName = 'Z2R210umzuo2'
+ShowSubstanceName = 'ZZR210umyou'
+#ShowSubstanceName = 'ZZR210umzhong'
 
 pointSizeMap = {
     100: 1,
@@ -31,4 +34,31 @@ pointSizeMap = {
     15:1.63,
     10:1.67,
     5:1.72,
+}
+
+
+
+
+
+
+
+SubstanceFeatureMap = {
+    '胆固醇酯': [1092,1461,1740],  # 胆固醇酯
+    '甘油三酯': [1247,1732],  # 甘油三酯
+    '磷脂酰胆碱': [1007,1526],  # 磷脂酰胆碱
+    '神经酰胺': [993,1612,1740],  # 神经酰胺
+    '磷脂酰肌醇': [409],  # 磷脂酰肌醇
+    '磷脂酰乙醇胺': [419],  # 磷脂酰乙醇胺
+    # 'A': [1092,1461,1740],
+    # 'A': [1092,1461,1740],
+    # 'A': [1092,1461,1740],
+}
+
+SubstanceColorMap = {
+    '胆固醇酯': '#FF0000',  # 红
+    '甘油三酯': '#FFA500',  # 橙
+    '磷脂酰胆碱': '#FFFF00',  # 黄
+    '神经酰胺': '#00FF00',  # 绿
+    '磷脂酰肌醇': '#0000FF',  # 蓝
+    '磷脂酰乙醇胺': '#FF00FF',  # 紫
 }

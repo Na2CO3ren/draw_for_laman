@@ -13,6 +13,8 @@ import threshold as thd
 
 # matplotlib.use('TkAgg')
 matplotlib.rcParams['figure.dpi'] = 150
+plt.rcParams['font.family'] = 'Hiragino Sans GB'  # 使用黑体字体，可根据系统情况替换为其他支持中文的字体
+plt.rcParams['axes.unicode_minus'] = False
 
 # substanceName = show.ShowSubstanceInput()
 
