@@ -11,6 +11,10 @@ import data_import as data
 import const.const as const
 import threshold as thd
 
+# pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pandas
+# 找id要找这个              const elementId = '{{ plot_div.split("<div id=\\"")[1].split("\\"")[0] }}'
+
+
 # matplotlib.use('TkAgg')
 matplotlib.rcParams['figure.dpi'] = 150
 plt.rcParams['font.family'] = 'Hiragino Sans GB'  # 使用黑体字体，可根据系统情况替换为其他支持中文的字体

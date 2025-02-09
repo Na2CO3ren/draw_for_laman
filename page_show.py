@@ -1,277 +1,291 @@
-import tkinter as tk
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import SpanSelector
-import model.model as model
-import threshold as thd
-import util.util as util
-import const.const as const
+import plotly.graph_objects as go
+from flask import Flask, render_template_string, request, jsonify
+import page_show as show
 import data_import as data
+import const.const as const
 import point_size as point_size
-import const.color as cl
 
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,QFormLayout,QComboBox
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPalette, QColor
-import sys
-import window as window
 
-current_curve_fig = None
+app = Flask(__name__)
+substance = data.ImportData(const.ShowSubstanceName)
 
-MyWindow = None
-FillList = None
+# 计算散点大小
+# def CalPointSize(pointNum):
+#     return 10
+
+# 计算散点图X轴范围
+def CalScatterXRange(points):
+    if len(points) == 0:
+        print("[CalScatterXRange]points is empty")
+        return 0, 0
+    min_x = min([point.locaX for point in points])
+    max_x = max([point.locaX for point in points])
+    return min_x, max_x
+
+# 计算散点图Y轴范围
+def CalScatterYRange(points):
+    if len(points) == 0:
+        print("[CalScatterYRange]points is empty")
+        return 0, 0
+    min_y = min([point.locaY for point in points])
+    max_y = max([point.locaY for point in points])
+    return min_y, max_y
 
 # 绘制散点图
-def DrawScatter(substance,ScatterFig, ScatterAxs):
-    # 提取坐标点的x坐标和y坐标
+def DrawScatter(substance):
     locaX = np.array([point.locaX for point in substance.points])
     locaY = np.array([point.locaY for point in substance.points])
-
-    # 获取颜色数组
     colors = [point.color for point in substance.points]
-    # 计算散点大小
     size = point_size.CalPointSize(substance.pointXNum)
-    # 绘制散点图
-    scatter_plot = ScatterAxs.scatter(locaX, locaY, c=colors, s=size, picker=True, marker="s")
+
+    scatter_fig = go.Figure(data=go.Scatter(
+        x=locaX,
+        y=locaY,
+        mode='markers',
+        marker=dict(
+            color=colors,
+            size=size,
+            symbol='square'
+        ),
+        customdata=list(range(len(substance.points))),
+        hovertemplate='X: %{x}<br>Y: %{y}<extra></extra>'
+    ))
+
     xMin, xMax = CalScatterXRange(substance.points)
-    ScatterAxs.set_xlim(xMin,xMax)
     yMin, yMax = CalScatterYRange(substance.points)
-    ScatterAxs.set_ylim(yMin,yMax)
+    scatter_fig.update_xaxes(range=[xMin, xMax])
+    scatter_fig.update_yaxes(range=[yMin, yMax])
 
-    # # 设置坐标轴标签和标题
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.title('Intensity')
+    scatter_fig.update_layout(
+        xaxis=dict(scaleanchor='y', scaleratio=1),
+        yaxis=dict(constrain='domain'),
+        title='Intensity',
+        xaxis_title='X',
+        yaxis_title='Y',
+        margin=dict(l=0, r=0, t=50, b=0),
+        height=800
+    )
 
-    # 定义点击事件处理函数
-    def on_pick(event):
-        if event.artist == scatter_plot:
-            # 获取被点击点的索引
-            ind = event.ind[0]
-            print(f"Clicked point coordinates: ({locaX[ind]}, {locaY[ind]})")
-            # 获取曲线信息
-            curve = substance.curves[ind]
-            a = drawInnerLine(substance, locaX[ind], locaY[ind], ind, curve, ScatterFig, ScatterAxs, scatter_plot)
-
-    # 连接点击事件和处理函数
-    cid = ScatterFig.canvas.mpl_connect('pick_event', on_pick)
-    # 创建一个空的注释对象，用于显示鼠标悬停时的信息
-    annot = ScatterAxs.annotate("", xy=(0, 0), xytext=(20, 20), textcoords="offset points",
-                        bbox=dict(boxstyle="round", fc="w"),
-                        arrowprops=dict(arrowstyle="->"))
-    annot.set_visible(False)
-
-    # 定义鼠标移动事件的处理函数
-    def update_annot(ind):
-        pos = scatter_plot.get_offsets()[ind["ind"][0]]
-        annot.xy = pos
-        point = substance.points[ind["ind"][0]]
-        text = util.FormatComponent(point.components)
-        annot.set_text(text)
-        annot.get_bbox_patch().set_alpha(0.4)
-
-    def hover(event):
-        vis = annot.get_visible()
-        if event.inaxes == ScatterAxs:
-            cont, ind = scatter_plot.contains(event)
-            if cont:
-                update_annot(ind)
-                annot.set_visible(True)
-                ScatterFig.canvas.draw_idle()
-            else:
-                if vis:
-                    annot.set_visible(False)
-                    ScatterFig.canvas.draw_idle()
-
-    # 连接鼠标移动事件到处理函数
-    ScatterFig.canvas.mpl_connect("motion_notify_event", hover)
-
-    # 显示图形
-    plt.show()
-
-
-
-# 弹出阈值输入框
-def ShowThresholdInput(x, y, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax):
-    global MyWindow
-    if MyWindow == None:
-        win = window.MyWidget(x, y, new_x, new_y, config, substance, locaInd, scatter_plot, new_ax)
-        MyWindow = win
-        win.execute()
-    else:
-        MyWindow.showWin(x, y, new_x, new_y, config, substance, locaInd, scatter_plot, new_ax)
-    return config
-
-# 弹出物质输入框
-def ShowSubstanceInput():
-    app = QApplication(sys.argv)
-    window = QWidget()
-    window.setWindowTitle("物质输入")
-
-    layout = QVBoxLayout()
-
-    label = QLabel("请输入想要查看的物质")
-    layout.addWidget(label)
-
-    # 第三行创建可输入的文本框
-    substanceInput = QLineEdit()
-    # substanceInput.setPlaceholderText("请在这里输入物质")
-    layout.addWidget(substanceInput)
-
-
-    def get_result():
-        result = substanceInput.text()
-        window.close()
-        app.quit()
-        # QApplication.quit()
-        return result
-
-    submit_button = QPushButton("提交")
-    submit_button.clicked.connect(get_result)
-    layout.addWidget(submit_button)
-
-    window.setLayout(layout)
-    window.show()
-    app.exec_()
-
-    # window.close()
-    # app.quit()
-    return substanceInput.text()
+    return scatter_fig
 
 # 绘制曲线图
-def drawInnerLine(substance,locatX,locatY, locaInd,curve,fig, axs, scatter_plot):
-    print(f'curve:{len(curve.lineFillList)}')
-    global  FillList
-    global MyWindow
-    # 绘制曲线
-    new_fig, new_ax = plt.subplots()
-    new_fig.set_size_inches(4.9, 4.9)
-    line = new_ax.plot(curve.x, curve.y,linewidth=0.5)
+def drawInnerLine(substance, locaInd):
+    curve = substance.curves[locaInd]
+    curve_fig = go.Figure(data=go.Scatter(
+        x=curve.x,
+        y=curve.y,
+        mode='lines',
+        line=dict(width=0.5)
+    ))
+    curve_fig.update_layout(
+        title=f'Intensity Curve for Point ({substance.points[locaInd].locaX}, {substance.points[locaInd].locaY})',
+        xaxis_title='Wave Number',
+        yaxis_title='Intensity',
+        dragmode='select'
+    )
+    return curve_fig
 
-    # 填充标记区间
-    FillList = FillTheLine(new_ax, curve.lineFillList)
+@app.route('/')
+def index():
+    scatter_fig = DrawScatter(substance)
+    scatter_html = scatter_fig.to_html(full_html=False, include_plotlyjs='cdn', div_id='scatter-plot')
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Interactive Scatter and Curve Plots</title>
+        <style>
+            .plot-container {{
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+            }}
+            .plot {{
+                width: 48%;
+            }}
+            /* 模态框样式 */
+            .modal {{
+                display: none;
+                position: fixed;
+                z-index: 1;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.4);
+            }}
+            .modal-content {{
+                background-color: #fefefe;
+                margin: 15% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 30%;
+            }}
+            .close {{
+                color: #aaa;
+                float: right;
+                font-size: 28px;
+                font-weight: bold;
+            }}
+            .close:hover,
+            .close:focus {{
+                color: black;
+                text-decoration: none;
+                cursor: pointer;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Interactive Scatter and Curve Plots</h1>
+        <div class="plot-container">
+            <div class="plot" id="scatter-plot">
+                {scatter_html}
+            </div>
+            <div class="plot" id="curve-plot"></div>
+        </div>
+        <!-- 模态框 -->
+        <div id="myModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <label for="threshold">阈值:</label>
+                <input type="number" id="threshold" name="threshold"><br>
+                <label for="color">颜色:</label>
+                <input type="text" id="color" name="color"><br>
+                <button id="submitBtn">提交</button>
+            </div>
+        </div>
+        <script>
+            var scatterPlot = document.getElementById('scatter-plot');
+            scatterPlot.on('plotly_click', function(data) {{
+                var point = data.points[0];
+                var locaInd = point.customdata;
+                // 发送请求获取曲线图数据
+                fetch('/get_curve', {{
+                    method: 'POST',
+                    headers: {{
+                        'Content-Type': 'application/json'
+                    }},
+                    body: JSON.stringify({{ locaInd: locaInd }})
+                }})
+               .then(response => response.json())
+               .then(data => {{
+                    var curvePlotDiv = document.getElementById('curve-plot');
+                    curvePlotDiv.innerHTML = data.curve_html;
+                    var curvePlot = Plotly.react('curve-plot', JSON.parse(data.curve_json), {{}});
+                    curvePlot.on('plotly_selected', function(selectedData) {{
+                        var selectedPoints = selectedData.points;
+                        if (selectedPoints.length > 0) {{
+                            var startX = selectedPoints[0].x;
+                            var endX = selectedPoints[selectedPoints.length - 1].x;
+                            // 显示模态框
+                            var modal = document.getElementById('myModal');
+                            modal.style.display = "block";
+                            // 获取提交按钮并添加点击事件
+                            var submitBtn = document.getElementById('submitBtn');
+                            submitBtn.onclick = function() {{
+                                var threshold = parseFloat(document.getElementById('threshold').value);
+                                var color = document.getElementById('color').value;
+                                if (!isNaN(threshold) && color!== '') {{
+                                    // 发送请求更新散点颜色和曲线图
+                                    fetch('/update_curve', {{
+                                        method: 'POST',
+                                        headers: {{
+                                            'Content-Type': 'application/json'
+                                        }},
+                                        body: JSON.stringify({{
+                                            locaInd: locaInd,
+                                            startX: startX,
+                                            endX: endX,
+                                            threshold: threshold,
+                                            color: color
+                                        }})
+                                    }})
+                                   .then(response => response.json())
+                                   .then(data => {{
+                                        curvePlotDiv.innerHTML = data.curve_html;
+                                        Plotly.react('curve-plot', JSON.parse(data.curve_json), {{}});
+                                        // 关闭模态框
+                                        modal.style.display = "none";
+                                    }});
+                                }}
+                            }};
+                            // 获取关闭按钮并添加点击事件
+                            var span = document.getElementsByClassName("close")[0];
+                            span.onclick = function() {{
+                                modal.style.display = "none";
+                            }};
+                        }}
+                    }});
+                }});
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    return render_template_string(html_template)
 
-    cfgId = util.GenCfgId(substance, locaInd)
-    def onselect(xmin, xmax):
-        new_x = [x_value for index, x_value in enumerate(curve.x) if xmin <= x_value <= xmax]
-        new_y = [curve.y[index] for index, x_value in enumerate(curve.x) if xmin <= x_value <= xmax]
-        if len(new_x) <= 1 :
-            return
-        # 生成配置
-        config = model.ThresholdConfig(
-            cfgId=cfgId,
-            substance=substance.name,
-            locaX=locatX,
-            locaY=locatY,
-            locaInd=locaInd,
-            lineFillList = [],
-            color = cl.InvalidColor
-        )
-        if locaInd in substance.cfgs:
-            config = substance.cfgs[locaInd]
+@app.route('/get_curve', methods=['POST'])
+def get_curve():
+    data = request.get_json()
+    locaInd = data['locaInd']
+    curve_fig = drawInnerLine(substance, locaInd)
+    curve_html = curve_fig.to_html(full_html=False, include_plotlyjs=False, div_id='curve-plot')
+    return jsonify({
+        'curve_html': curve_html,
+        'curve_json': curve_fig.to_json()
+    })
 
-        # 展示输入框
-        ShowThresholdInput(xmin, xmax, new_x, new_y, config,substance, locaInd, scatter_plot, new_ax)
-        # RefreshAfterInput(substance, locaInd, config, scatter_plot,fillList, new_ax)
-        # 重新绘制
-        # drawInnerLine(substance, locatX, locatY, locaInd,curve,fig, axs,scatter_plot)
+@app.route('/update_curve', methods=['POST'])
+def update_curve():
+    data = request.get_json()
+    locaInd = data['locaInd']
+    startX = data['startX']
+    endX = data['endX']
+    threshold = data['threshold']
+    color = data['color']
 
-    # if MyWindow != None :
-    #     print(f'before hide is hide:{MyWindow.isHidden()}')
-    #     MyWindow.hideMyself()
-    # 创建SpanSelector用于区间选择
-    span_selector = SpanSelector(new_ax, onselect, 'horizontal', useblit=True, interactive=True,
-                                 drag_from_anywhere=True)
-
-    new_ax.set_xlabel('Wave Number')
-    new_ax.set_ylabel('Intensity')
-    new_ax.set_title(f'Intensity Curve for Point ({locatX}, {locatY})')
-
-    plt.show()
-    # if MyWindow != None :
-    #     print(f'before hide is hide:{MyWindow.isHidden()}')
-    #     MyWindow.hideMyself()
-    print('after show')
-
-def RefreshAfterInput(substance, locaInd, config, scatter_plot, new_ax):
-    global FillList
-    substance.cfgs[locaInd] = config
-    substance.curves[locaInd].lineFillList = config.lineFillList
-    thd.ThresholdConfigMap[locaInd] = config
+    # 更新散点颜色逻辑
     for point in substance.points:
-        point.SetColor(substance.cfgs, substance.curves[point.pointId])
+        if startX <= point.locaX <= endX and point.locaY > threshold:
+            point.color = color
 
-    # 保存配置
-    thd.SaveThresholdConfig(thd.ThresholdConfigMap, substance.name)
-    # # 关闭之前的窗口
-    # plt.close(new_fig)
+    # 重新绘制曲线图并标记选择区间和阈值
+    curve = substance.curves[locaInd]
+    curve_fig = go.Figure(data=go.Scatter(
+        x=curve.x,
+        y=curve.y,
+        mode='lines',
+        line=dict(width=0.5)
+    ))
+    # 添加选择区间标记
+    curve_fig.add_shape(
+        type="rect",
+        x0=startX,
+        y0=min(curve.y),
+        x1=endX,
+        y1=max(curve.y),
+        fillcolor="gray",
+        opacity=0.2,
+        line_width=0
+    )
+    # 添加阈值标记
+    curve_fig.add_hline(y=threshold, line_dash="dash", line_color=color)
 
-    # 更新散点位置
-    colors = [point.color for point in substance.points]
-    scatter_plot.set_color(colors)
-    # 刷新图形
-    # fig.canvas.draw_idle()
-    # plt.show()
-    #
-    for axFill in FillList:
-        # print(f'remvoe fill: xmin={axFill.rangeX[0]},xmax={axFill.rangeX[-1]}')
-        axFill.remove()
-    FillList = FillTheLine(new_ax, config.lineFillList)
-    # new_fig.canvas.draw_idle()
-    plt.show()
+    curve_fig.update_layout(
+        title=f'Intensity Curve for Point ({substance.points[locaInd].locaX}, {substance.points[locaInd].locaY})',
+        xaxis_title='Wave Number',
+        yaxis_title='Intensity',
+        dragmode='select'
+    )
 
-def FillTheLine(new_ax, lineFillList) :
-    fillList = []
-    for lineFill in lineFillList:
-        if np.all(np.array(lineFill.rangeY) < lineFill.threshold):
-            axFill = new_ax.fill_between(np.array(lineFill.rangeX), np.array(lineFill.rangeY),
-                                         y2=lineFill.threshold,
-                                         where=(np.array(lineFill.rangeY) < lineFill.threshold), color='g', alpha=1)
-            fillList.append(axFill)
-        else:
-            axFill = new_ax.fill_between(np.array(lineFill.rangeX), np.array(lineFill.rangeY),
-                                         y2=lineFill.threshold,
-                                         where=(np.array(lineFill.rangeY) > lineFill.threshold), color='r', alpha=1)
-            fillList.append(axFill)
-    return fillList
+    curve_html = curve_fig.to_html(full_html=False, include_plotlyjs=False, div_id='curve-plot')
+    return jsonify({
+        'curve_html': curve_html,
+        'curve_json': curve_fig.to_json()
+    })
 
-# 重绘散点图
-def RedrawScatter(substanceName, fig, axs):
-    global current_curve_fig
-    if current_curve_fig is not None:
-        current_curve_fig.canvas.flush_events()
-        current_curve_fig = None
-
-    axs.clear()
-    points, substance = data.ImportData(substanceName)
-    DrawScatter(points, substance,fig, axs)
-
-def CalScatterXRange(points):
-    if len(points) == 0 :
-        print("[CalScatterXRange]points is empty")
-        return 0, 0
-    locatXSet = {point.locaX for point in points}
-    sortedXList = sorted(list(locatXSet))
-    xDistance = sortedXList[1] - sortedXList[0]
-    xMin = sortedXList[0] - xDistance / 2
-    xMax = sortedXList[len(sortedXList) - 1] + xDistance / 2
-    return xMin, xMax
-
-
-def CalScatterYRange(points):
-    if len(points) == 0 :
-        print("[CalScatterXRange]points is empty")
-        return 0, 0
-    locatYSet = {point.locaY for point in points}
-    sortedYList = sorted(list(locatYSet))
-    yDistance = sortedYList[1] - sortedYList[0]
-    yMin = sortedYList[0] - yDistance / 2
-    yMax = sortedYList[len(sortedYList) - 1] + yDistance / 2
-    return yMin, yMax
-
-def GetMainColor(color):
-    for mainColor, subColors in cl.SubColorMap.items():
-        for subColor in subColors:
-            if subColor == color:
-                return mainColor
-    return cl.MainPointColor[0]
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=9898)
