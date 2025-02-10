@@ -23,6 +23,9 @@ plt.rcParams['axes.unicode_minus'] = False
 # substanceName = show.ShowSubstanceInput()
 
 substance = data.ImportData(const.ShowSubstanceName)
+jsonify({
+        'curve_data':substance.curves[0]
+    })
 
 # 设置图片参数
 # ScatterFig, (ScatterAxs, linAxs) = plt.subplots(1,2)
