@@ -1,25 +1,25 @@
 import numpy as np
 import plotly.graph_objects as go
 from flask import Flask, render_template_string, request, jsonify
-import page_show as show
 import data_import as data
 import const.const as const
 import point_size as point_size
 import model.model as model
+import util.util as util
+import const.color as cl
+import threshold as thd
+import logging
 
-
+# 配置日志
+logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 substance = data.ImportData(const.ShowSubstanceName)
 
-# 计算散点大小
-# def CalPointSize(pointNum):
-#     return 10
-
 # 计算散点图X轴范围，添加偏移量
 def CalScatterXRange(points):
     if len(points) == 0:
-        print("[CalScatterXRange]points is empty")
+        logging.debug("[CalScatterXRange]points is empty")
         return 0, 0
     min_x = min([point.locaX for point in points])
     max_x = max([point.locaX for point in points])
@@ -29,7 +29,7 @@ def CalScatterXRange(points):
 # 计算散点图Y轴范围，添加偏移量
 def CalScatterYRange(points):
     if len(points) == 0:
-        print("[CalScatterYRange]points is empty")
+        logging.debug("[CalScatterYRange]points is empty")
         return 0, 0
     min_y = min([point.locaY for point in points])
     max_y = max([point.locaY for point in points])
@@ -38,10 +38,14 @@ def CalScatterYRange(points):
 
 # 绘制散点图
 def DrawScatter(substance):
+    if not substance.points:
+        logging.debug("No points in substance for scatter plot.")
+        return None
     locaX = np.array([point.locaX for point in substance.points])
     locaY = np.array([point.locaY for point in substance.points])
     colors = [point.color for point in substance.points]
     size = point_size.CalPointSize(substance.pointXNum)
+    components = [util.FormatComponent(point.components) for point in substance.points]
 
     scatter_fig = go.Figure(data=go.Scatter(
         x=locaX,
@@ -50,10 +54,11 @@ def DrawScatter(substance):
         marker=dict(
             color=colors,
             size=size,
-            symbol='square'  # 设置散点形状为正方形
+            symbol='square'
         ),
-        customdata=list(range(len(substance.points))),  # 用于传递点的索引
-        hovertemplate='X: %{x}<br>Y: %{y}<extra></extra>'
+        text = components,
+        customdata=list(range(len(substance.points))),
+        hovertemplate='Components: %{text}<extra></extra>'
     ))
 
     xMin, xMax = CalScatterXRange(substance.points)
@@ -61,15 +66,14 @@ def DrawScatter(substance):
     scatter_fig.update_xaxes(range=[xMin, xMax])
     scatter_fig.update_yaxes(range=[yMin, yMax])
 
-    # 调整布局参数，去除不必要的边距
-    plot_height = 800  # 统一设置高度
+    plot_height = 800
     scatter_fig.update_layout(
-        xaxis=dict(scaleanchor='y', scaleratio=1),  # 设置散点图边框为正方形
+        xaxis=dict(scaleanchor='y', scaleratio=1),
         yaxis=dict(constrain='domain'),
         title='Intensity',
         xaxis_title='X',
         yaxis_title='Y',
-        margin=dict(l=0, r=0, t=50, b=0),  # 调整边距，使散点更靠近边缘
+        margin=dict(l=0, r=0, t=50, b=0),
         height=plot_height
     )
 
@@ -77,6 +81,9 @@ def DrawScatter(substance):
 
 # 绘制曲线图
 def drawInnerLine(substance, locaInd):
+    if locaInd >= len(substance.curves):
+        logging.debug(f"Invalid locaInd {locaInd} for curve plot.")
+        return None
     curve = substance.curves[locaInd]
     curve_fig = go.Figure(data=go.Scatter(
         x=curve.x,
@@ -84,12 +91,12 @@ def drawInnerLine(substance, locaInd):
         mode='lines',
         line=dict(width=0.5)
     ))
-    plot_height = 800  # 统一设置高度
+    plot_height = 800
     curve_fig.update_layout(
         title=f'Intensity Curve for Point ({substance.points[locaInd].locaX}, {substance.points[locaInd].locaY})',
         xaxis_title='Wave Number',
         yaxis_title='Intensity',
-        dragmode='select',  # 允许框选操作
+        dragmode='select',
         height=plot_height
     )
     return curve_fig
@@ -97,28 +104,27 @@ def drawInnerLine(substance, locaInd):
 @app.route('/')
 def index():
     scatter_fig = DrawScatter(substance)
-    scatter_html = scatter_fig.to_html(full_html=False, include_plotlyjs='cdn', div_id='scatter-plot')
-    # 将 plot_div 输出到文件
-    with open('plot_div_output.html', 'w', encoding='utf-8') as f:
-        f.write(scatter_html)
+    if scatter_fig is None:
+        scatter_html = "<p>No scatter plot data available.</p>"
+    else:
+        scatter_html = scatter_fig.to_html(full_html=False, include_plotlyjs='cdn', div_id='scatter-plot')
 
-    html_template = f"""
+    html_template = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <title>Interactive Scatter and Curve Plots</title>
         <style>
-            .plot-container {{
+            .plot-container {
                 display: flex;
                 flex-direction: row;
                 justify-content: space-between;
-            }}
-            .plot {{
-                width: 48%; /* 为了留出一些间距 */
-            }}
-            /* 弹窗样式 */
-            #myModal {{
+            }
+            .plot {
+                width: 48%;
+            }
+            #myModal {
                 display: none;
                 position: fixed;
                 z-index: 1;
@@ -128,37 +134,36 @@ def index():
                 height: 100%;
                 overflow: auto;
                 background-color: rgba(0,0,0,0.4);
-            }}
-            .modal-content {{
+            }
+            .modal-content {
                 background-color: #fefefe;
                 margin: 15% auto;
                 padding: 20px;
                 border: 1px solid #888;
                 width: 30%;
-            }}
-            .close {{
+            }
+            .close {
                 color: #aaa;
                 float: right;
                 font-size: 28px;
                 font-weight: bold;
-            }}
+            }
             .close:hover,
-            .close:focus {{
+            .close:focus {
                 color: black;
                 text-decoration: none;
                 cursor: pointer;
-            }}
+            }
         </style>
     </head>
     <body>
         <h1>Interactive Scatter and Curve Plots</h1>
         <div class="plot-container">
             <div class="plot" id="scatter-plot">
-                {scatter_html}
+                {{ scatter_html|safe }}
             </div>
             <div class="plot" id="curve-plot"></div>
         </div>
-        <!-- 弹窗 -->
         <div id="myModal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
@@ -182,136 +187,153 @@ def index():
         <script>
             var scatterPlot = document.getElementById('scatter-plot');
             var locaIndGlobal;
-            scatterPlot.on('plotly_click', function(data) {{
-                var point = data.points[0];
-                locaIndGlobal = point.customdata;
-                // 发送请求获取曲线图数据
-                fetch('/get_curve', {{
-                    method: 'POST',
-                    headers: {{
-                        'Content-Type': 'application/json'
-                    }},
-                    body: JSON.stringify({{ locaInd: locaIndGlobal }})
-                }})
-               .then(response => response.json())
-               .then(data => {{
-                    var curvePlotDiv = document.getElementById('curve-plot');
-                    curvePlotDiv.innerHTML = data.curve_html;
-                    var curvePlot = Plotly.react('curve-plot', JSON.parse(data.curve_json), {{}});
-                    curvePlotDiv.on('plotly_selected', function(selectedData) {{
-                        console.log('selectedData', selectedData)
-                        var xRange = selectedData.range.x;
-                        var startX = xRange[0];
-                        var endX = xRange[1];
-                        var curveData = JSON.parse(data.curve_data)
-                        console.log('curveData', curveData)
-                        var selectedPoints = [];
-                        for (var i = 0; i < curveData.x.length; i++) {{
-                            if (curveData.x[i] >= startX && curveData.x[i] <= endX) {{
-                                selectedPoints.push({{
-                                    x: curveData.x[i],
-                                    y: curveData.y[i]
-                                }});
-                            }}
-                        }}
-                        console.log('startX', startX)
-                        document.getElementById('xMinValue').textContent = startX;
-                        document.getElementById('xMaxValue').textContent = endX;
-                        var modal = document.getElementById('myModal');
-                        console.log('modal', modal)
-                        modal.style.display = "block";
-                    }});
-                }});
-            }});
+            if (scatterPlot) {
+                scatterPlot.on('plotly_click', function(data) {
+                    var point = data.points[0];
+                    locaIndGlobal = point.customdata;
+                    fetch('/get_curve', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ locaInd: locaIndGlobal })
+                    })
+                   .then(response => response.json())
+                   .then(data => {
+                        var curvePlotDiv = document.getElementById('curve-plot');
+                        curvePlotDiv.innerHTML = data.curve_html;
+                        var curvePlot = Plotly.react('curve-plot', JSON.parse(data.curve_json), {});
+                        curvePlotDiv.on('plotly_selected', function(selectedData) {
+                            var xRange = selectedData.range.x;
+                            var startX = xRange[0];
+                            var endX = xRange[1];
+                            var curveData = JSON.parse(data.curve_data)
+                            var selectedPoints = [];
+                            for (var i = 0; i < curveData.x.length; i++) {
+                                if (curveData.x[i] >= startX && curveData.x[i] <= endX) {
+                                    selectedPoints.push({
+                                        x: curveData.x[i],
+                                        y: curveData.y[i]
+                                    });
+                                }
+                            }
+                            document.getElementById('xMinValue').textContent = startX;
+                            document.getElementById('xMaxValue').textContent = endX;
+                            var modal = document.getElementById('myModal');
+                            modal.style.display = "block";
+                        });
+                    });
+                });
+            }
 
-            // 关闭弹窗
             var span = document.getElementsByClassName("close")[0];
-            span.onclick = function() {{
-                var modal = document.getElementById('myModal');
-                modal.style.display = "none";
-            }}
-
-            // 点击窗口外关闭弹窗
-            window.onclick = function(event) {{
-                var modal = document.getElementById('myModal');
-                if (event.target == modal) {{
+            if (span) {
+                span.onclick = function() {
+                    var modal = document.getElementById('myModal');
                     modal.style.display = "none";
-                }}
-            }}
+                }
+            }
 
-            // 提交数据
-            function submitData() {{
+            window.onclick = function(event) {
+                var modal = document.getElementById('myModal');
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+
+            function submitData() {
                 var startX = parseFloat(document.getElementById('xMinValue').textContent);
                 var endX = parseFloat(document.getElementById('xMaxValue').textContent);
                 var threshold = parseFloat(document.getElementById('thresholdInput').value);
                 var color = document.getElementById('colorSelect').value;
-                console.log('submitData threshold',threshold)
-                console.log('submitData color',color)
-                if (!isNaN(threshold)) {{
-                    // 发送请求更新散点颜色
-                    fetch('/update_color', {{
+                if (!isNaN(threshold)) {
+                    fetch('/update_color', {
                         method: 'POST',
-                        headers: {{
+                        headers: {
                             'Content-Type': 'application/json'
-                        }},
-                        body: JSON.stringify({{
+                        },
+                        body: JSON.stringify({
                             locaInd: locaIndGlobal,
                             startX: startX,
                             endX: endX,
                             threshold: threshold,
                             color: color
-                        }})
-                    }})
+                        })
+                    })
                    .then(response => response.json())
-                   .then(data => {{
+                   .then(data => {
                         var scatterPlotDiv = document.getElementById('scatter-plot');
                         scatterPlotDiv.innerHTML = data.scatter_html;
                         var modal = document.getElementById('myModal');
                         modal.style.display = "none";
-                    }});
-                }}
-            }}
+                    });
+                }
+            }
         </script>
     </body>
     </html>
     """
-    return render_template_string(html_template)
+    return render_template_string(html_template, scatter_html=scatter_html)
 
 @app.route('/get_curve', methods=['POST'])
 def get_curve():
     data = request.get_json()
     locaInd = data['locaInd']
     curve_fig = drawInnerLine(substance, locaInd)
+    if curve_fig is None:
+        return jsonify({
+            'curve_html': "<p>No curve plot data available.</p>",
+            'curve_json': '{}',
+            'curve_data': '{}'
+        })
     curve_html = curve_fig.to_html(full_html=False, include_plotlyjs=False, div_id='curve-plot')
     curve_data = substance.curves[locaInd]
-    str = curve_data.__repr__()
-
+    str_data = curve_data.__repr__()
     return jsonify({
         'curve_html': curve_html,
         'curve_json': curve_fig.to_json(),
-        'curve_data': str
+        'curve_data': str_data
     })
 
 @app.route('/update_color', methods=['POST'])
 def update_color():
-    # todo:robin 改到这里了
     data = request.get_json()
     locaInd = data['locaInd']
     startX = data['startX']
     endX = data['endX']
     threshold = data['threshold']
     color = data['color']
+    cfgId = util.GenCfgId(substance, locaInd)
+    point = substance.points[locaInd]
 
-    # 更新散点颜色逻辑
-    for point in substance.points:
-        if startX <= point.locaX <= endX and point.locaY > threshold:
-            point.color = color
+    if locaInd in substance.cfgs:
+        config = substance.cfgs[locaInd]
+    else:
+        config = model.ThresholdConfig(
+            cfgId=cfgId,
+            substance=substance.name,
+            locaX=point.locaX,
+            locaY=point.locaY,
+            locaInd=locaInd,
+            lineFillList=[],
+            color=cl.InvalidColor
+        )
+    newLineFillList = thd.AddFillLine(model.LineFill(startX, endX, threshold), config.lineFillList)
+    config.lineFillList = newLineFillList
+    substance.curves[locaInd].lineFillList = config.lineFillList
+
+    substance.points[locaInd].SetColor(substance.cfgs, substance.curves[locaInd])
+    thd.ThresholdConfigMap[locaInd] = config
+    thd.SaveThresholdConfig(thd.ThresholdConfigMap, substance.name)
 
     scatter_fig = DrawScatter(substance)
-    scatter_html = scatter_fig.to_html(full_html=False, include_plotlyjs='cdn', div_id='scatter-plot')
+    if scatter_fig is None:
+        scatter_html = "<p>No scatter plot data available after update.</p>"
+    else:
+        scatter_html = scatter_fig.to_html(full_html=False, include_plotlyjs='cdn', div_id='scatter-plot')
     return jsonify({
         'scatter_html': scatter_html
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=9898)
+    app.run(host='0.0.0.0', port=9898, debug=True)

@@ -18,7 +18,7 @@ DefaultThreshold = -10
 #ShowSubstanceName = 'PX 4-7_last'
 #ShowSubstanceName = 'Z2R210um2zuo1'
 #ShowSubstanceName = 'Z2R210umzuo2'
-ShowSubstanceName = 'ZZR210umyou'
+ShowSubstanceName = 'ZZR210umzhong'
 #ShowSubstanceName = 'ZZR210umzhong'
 
 pointSizeMap = {
